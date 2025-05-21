@@ -1,22 +1,37 @@
 import pygame
 import os
 import random
+
 pygame.init()
 
+# Screen setup
 SCREEN_HEIGHT = 600
 SCREEN_WIDTH = 1100
 SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-RUNNING = pygame.image.load(os.path.join("Assets/Thief", "ThiefRun1.png"))
-JUMPING = RUNNING 
+# Load assets
+RUNNING = pygame.image.load(os.path.join("Assets/Thief", "ThiefRun1.png")).convert_alpha()
+JUMPING = RUNNING
 
-BG = pygame.image.load(os.path.join("Assets/Other", "MuseumTrack.png"))
+BG = pygame.image.load(os.path.join("Assets/Other", "MuseumTrack.png")).convert()
 BG = pygame.transform.scale(BG, (SCREEN_WIDTH, SCREEN_HEIGHT))
-WEBPAGE = pygame.image.load(os.path.join("Assets/Other", "WebMockup.png"))
 
-COP_IMG = pygame.image.load(os.path.join("Assets/Obstacles", "Cop.png"))
-MOTION_ZONE_IMG = pygame.image.load(os.path.join("Assets/Obstacles", "MotionZone.png"))
-LASER_IMG = pygame.image.load(os.path.join("Assets/Obstacles", "LaserMaze.png"))
+WEBPAGE = pygame.image.load(os.path.join("Assets/Other", "WebMockup.png")).convert_alpha()
+RESTART_BTN = pygame.image.load(os.path.join("Assets/Other", "Reset.png")).convert_alpha()
+RESTART_BTN = pygame.transform.scale(RESTART_BTN, (80, 80))
+
+COP_IMG = pygame.transform.scale(
+    pygame.image.load(os.path.join("Assets/Obstacles", "Cop.png")).convert_alpha(),
+    (250, 250)
+)
+MOTION_ZONE_IMG = pygame.transform.scale(
+    pygame.image.load(os.path.join("Assets/Obstacles", "MotionZone.png")).convert_alpha(),
+    (200, 200)
+)
+LASER_IMG = pygame.transform.scale(
+    pygame.image.load(os.path.join("Assets/Obstacles", "LaserMaze.png")).convert_alpha(),
+    (80, 80)
+)
 
 TARGET_POINTS = 3000
 
@@ -31,11 +46,11 @@ class Thief:
         self.jump_vel = self.JUMP_VEL
         self.y_initial = self.Y_POS
         self.thief_rect = self.image.get_rect(topleft=(self.X_POS, self.Y_POS))
+        self.mask = pygame.mask.from_surface(self.image)
 
     def update(self, userInput):
         if self.thief_jump:
             self.jump()
-
         if userInput[pygame.K_SPACE] and not self.thief_jump:
             self.thief_jump = True
 
@@ -51,8 +66,6 @@ class Thief:
     def draw(self, SCREEN):
         SCREEN.blit(self.image, self.thief_rect)
 
-
-
 class Obstacle:
     def __init__(self, image, y_pos, speed=0):
         self.image = image
@@ -60,6 +73,7 @@ class Obstacle:
         self.rect.x = SCREEN_WIDTH
         self.rect.y = y_pos
         self.speed = speed
+        self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
         self.rect.x -= game_speed + self.speed
@@ -69,25 +83,23 @@ class Obstacle:
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
-
 class PatrollingCop(Obstacle):
     def __init__(self):
-        super().__init__(COP_IMG, SCREEN_HEIGHT - 180, speed=2)
+        super().__init__(COP_IMG, SCREEN_HEIGHT - 300, speed=2)
 
 class MotionSensorZone(Obstacle):
     def __init__(self):
-        super().__init__(MOTION_ZONE_IMG, SCREEN_HEIGHT - 180)
+        super().__init__(MOTION_ZONE_IMG, SCREEN_HEIGHT - 260)
 
 class LaserMaze(Obstacle):
     def __init__(self):
-        super().__init__(LASER_IMG, SCREEN_HEIGHT - 180)
-
+        super().__init__(LASER_IMG, SCREEN_HEIGHT - 250)
 
 def main():
-    global game_speed, x_pos_bg, y_pos_bg, points, obstacles
+    global game_speed, x_pos_bg, points, obstacles
 
     player = Thief()
-    game_speed = 20
+    game_speed = 12  # slower starting speed
     x_pos_bg = 0
     points = 0
     obstacles = []
@@ -100,11 +112,8 @@ def main():
         points += 1
         if points % 100 == 0:
             game_speed += 1
-
         text = font.render("Points: " + str(points), True, (0, 0, 0))
-        textRect = text.get_rect()
-        textRect.center = (1000, 40)
-        SCREEN.blit(text, textRect)
+        SCREEN.blit(text, (950, 40))  # moved slightly left
 
     def background():
         global x_pos_bg
@@ -140,8 +149,12 @@ def main():
         for obstacle in obstacles[:]:
             obstacle.draw(SCREEN)
             obstacle.update()
-            if player.thief_rect.colliderect(obstacle.rect):
-                pygame.time.delay(1500)
+
+            # Pixel-perfect collision
+            offset = (obstacle.rect.x - player.thief_rect.x, obstacle.rect.y - player.thief_rect.y)
+            if player.mask.overlap(obstacle.mask, offset):
+                pygame.time.delay(1000)
+                game_over_screen()
                 return
 
         score()
@@ -154,6 +167,28 @@ def main():
         pygame.display.update()
         clock.tick(30)
 
+def game_over_screen():
+    font = pygame.font.Font('freesansbold.ttf', 32)
+    run = True
+    restart_x = SCREEN_WIDTH // 2 - 40
+    restart_y = 350
+    restart_rect = pygame.Rect(restart_x, restart_y, 80, 80)
+
+    while run:
+        SCREEN.fill((255, 255, 255))
+        text = font.render("GAME OVER", True, (0, 0, 0))
+        SCREEN.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, 200))
+        SCREEN.blit(RESTART_BTN, (restart_x, restart_y))
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if restart_rect.collidepoint(pygame.mouse.get_pos()):
+                    main()
+                    return
 
 def intro_screen():
     font = pygame.font.Font('freesansbold.ttf', 30)
@@ -177,7 +212,6 @@ def intro_screen():
                 main()
                 run = False
 
-
 def show_loaded_page():
     run = True
     font = pygame.font.Font('freesansbold.ttf', 28)
@@ -186,10 +220,8 @@ def show_loaded_page():
     while run:
         SCREEN.fill((255, 255, 255))
         SCREEN.blit(WEBPAGE, (100, 50))
-
         code_text = code_font.render("AUTH CODE: 7281-WIFI-RESTORED", True, (0, 0, 0))
         SCREEN.blit(code_text, (SCREEN_WIDTH // 2 - code_text.get_width() // 2, 500))
-
         pygame.display.update()
 
         for event in pygame.event.get():
@@ -197,6 +229,5 @@ def show_loaded_page():
                 run = False
                 pygame.quit()
                 return
-
 
 intro_screen()
