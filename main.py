@@ -90,6 +90,7 @@ class PatrollingCop(Obstacle):
 class MotionSensorZone(Obstacle):
     def __init__(self):
         super().__init__(MOTION_ZONE_IMG, SCREEN_HEIGHT - 260)
+        
 
 class LaserMaze(Obstacle):
     def __init__(self):
